@@ -29,6 +29,15 @@ class ChatGPT {
     this.logger.info(`Received response from ChatGPT: ${response}`);
     return response;
   }
+
+  async removeConversation(talker: Contact): Promise<void> {
+    if (!this.conversations.has(talker.id)) return;
+    const conversation = this.conversations.get(talker.id);
+    await conversation.api.ensureAuth();
+    this.conversations.delete(talker.id);
+    // 打印全部会话
+    this.logger.info(this.conversations);
+  }
 }
 
 export default ChatGPT;

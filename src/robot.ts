@@ -99,10 +99,11 @@ class ChatRobot {
         case MessageType.Text:
           const room = message.room();
           const isMentionSelf = await message.mentionSelf();
-          if (room && !isMentionSelf) break;
-
           const text = message.text().replace(/@.*\s/, '');
-          const response = await this.chatgpt.sendMessage(text, message.talker());
+
+          if ((room && !isMentionSelf) || (!room && !text.includes('提问'))) break;
+
+          let response = await this.chatgpt.sendMessage(text, message.talker());
 
           if (room) {
             await room.say(response, message.talker());
@@ -118,6 +119,10 @@ class ChatRobot {
       this.logger.error(error);
       if (error.message.includes('ChatGPT')) {
         await message.say(error.message);
+        if (error.message.includes('429')) {
+          this.chatgpt.removeConversation(message.talker());
+          message.say('你太烦人了，我不想理你了...重启中...可以继续发问题了');
+        }
       }
       this.logger.error(`Message: ${message.talker().name()} - ${MessageTypeName[message.type()]} - ${message.text()}`);
     }
