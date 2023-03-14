@@ -19,7 +19,6 @@ npm install
 
 拿到 api-key 之后，需要将其放入 `.env.development.local.example` 文件中，然后复制一份为 `.env.development.local` 文件。
 
-最后将这两项全部放入 `.env.development.local.example` 文件中，然后复制一份为 `.env.development.local` 文件。
 
 ```bash
 cp .env.development.local.example .env.development.local
