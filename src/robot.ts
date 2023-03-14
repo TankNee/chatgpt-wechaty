@@ -91,22 +91,33 @@ class ChatRobot {
   }
 
   private async messageHandler(message: MessageInterface): Promise<void> {
-    if (message.self()) return;
-    this.logger.debug(`Message from ${message.talker().name()}`);
+    if (!message.self()) {
+      this.logger.debug(`Message from ${message.talker().name()}`);
+    }
 
     try {
       switch (message.type()) {
         case MessageType.Text:
           const room = message.room();
           const isMentionSelf = await message.mentionSelf();
-          const text = message.text().replace(/@.*\s/, '');
-
-          if ((room && !isMentionSelf) || (!room && !text.includes('提问'))) break;
+          const text = message.text().replace(/@.*\s/, '').replace(/^提问/, '');
+          const isStartWithQuestion = message.text().startsWith('提问');
+          const isMentionAll = isMentionSelf && message.text().includes('@所有人');
+          // not break
+          // 解释下面这个if语句
+          // 如果是群聊，且不是@自己，那么就不处理
+          // 如果是私聊，且不是以“提问”开头，那么就不处理
+          // 这样做的目的是为了防止机器人被滥用
+          if (isMentionAll) break;
+          if ((!(message.self() && isStartWithQuestion && room) && room && !isMentionSelf) || (!room && !isStartWithQuestion)) break;
 
           let response = await this.chatgpt.sendMessage(text, message.talker());
 
           if (room) {
             await room.say(response, message.talker());
+            break;
+          } else if (message.self()) {
+            await message.listener().say(response);
             break;
           }
           await message.say(response);
@@ -121,7 +132,7 @@ class ChatRobot {
         await message.say(error.message);
         if (error.message.includes('429')) {
           this.chatgpt.removeConversation(message.talker());
-          message.say('你太烦人了，我不想理你了...重启中...可以继续发问题了');
+          message.say('重启中...可以继续发问题了');
         }
       }
       this.logger.error(`Message: ${message.talker().name()} - ${MessageTypeName[message.type()]} - ${message.text()}`);
