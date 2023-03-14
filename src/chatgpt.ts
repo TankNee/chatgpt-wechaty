@@ -32,8 +32,8 @@ class ChatGPT {
 
     this.conversations.set(talker.id, response.id);
     // save data
-    this.saveMessageHistory(talker, message, 'user');
-    this.saveMessageHistory(talker, responseText, 'bot');
+    this.saveMessageHistory(talker, message, 'user', null);
+    this.saveMessageHistory(talker, responseText, 'bot', response.detail);
 
     responseText = responseText.replace(/^提问/, '');
 
@@ -49,7 +49,7 @@ class ChatGPT {
     this.logger.info(this.conversations);
   }
 
-  async saveMessageHistory(talker: Contact, text: string, role: string): Promise<void> {
+  async saveMessageHistory(talker: Contact, text: string, role: string, detail: any): Promise<void> {
     // save to local file
     // const path = `./history/${talker.id}.txt`;
     const path = `./history/wechat_${talker.name()}.json`;
@@ -60,7 +60,7 @@ class ChatGPT {
       const rawData = fs.readFileSync(path, 'utf-8');
       data = JSON.parse(rawData);
     }
-    data.push({ text, time: new Date().toLocaleString(), role });
+    data.push({ text, time: new Date().toLocaleString(), role, detail });
     fs.writeFileSync(path, JSON.stringify(data, null, 2));
   }
 }
