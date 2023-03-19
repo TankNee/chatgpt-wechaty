@@ -7,10 +7,12 @@ import { isNullOrEmpty } from './utils';
 import qrcodeTerminal from 'qrcode-terminal';
 import { MessageType, MessageTypeName } from './interfaces';
 import ChatGPT from './chatgpt';
+import { RuleManager } from './rule';
 
 class ChatRobot {
   private bot: WechatyInterface;
   private logger: log4js.Logger;
+  private ruleManager: RuleManager;
   private chatgpt: ChatGPT;
 
   private init() {
@@ -33,6 +35,7 @@ class ChatRobot {
   constructor() {
     this.bot = this.init();
     this.logger = log4js.getLogger('ChatRobot');
+    this.ruleManager = new RuleManager();
     this.chatgpt = new ChatGPT();
     this.attachHandlers();
   }
@@ -99,18 +102,9 @@ class ChatRobot {
       switch (message.type()) {
         case MessageType.Text:
           const room = message.room();
-          const isMentionSelf = await message.mentionSelf();
           const text = message.text().replace(/@.*\s/, '').replace(/^提问/, '');
-          const isStartWithQuestion = message.text().startsWith('提问');
-          const isMentionAll = isMentionSelf && message.text().includes('@所有人');
-          // not break
-          // 解释下面这个if语句
-          // 如果是群聊，且不是@自己，那么就不处理
-          // 如果是私聊，且不是以“提问”开头，那么就不处理
-          // 这样做的目的是为了防止机器人被滥用
-          if (isMentionAll) break;
-          if ((!(message.self() && isStartWithQuestion && room) && room && !isMentionSelf) || (!room && !isStartWithQuestion)) break;
 
+          if (!(await this.ruleManager.valid(message))) break;
           let response = await this.chatgpt.sendMessage(text, message.talker());
 
           if (room) {
@@ -123,7 +117,7 @@ class ChatRobot {
           await message.say(response);
           break;
         default:
-          this.logger.debug(`Message Type: ${MessageTypeName[message.type()]}`);
+          this.logger.debug(`Message Type: ${MessageTypeName[message.type()]} from ${message.talker().name()}`);
           break;
       }
     } catch (error) {
