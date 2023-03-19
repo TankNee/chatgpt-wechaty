@@ -18,7 +18,7 @@ export class RuleManager {
 
   public initRules() {
     const notMentionAll: Rule = {
-      description: '@全体成员',
+      description: '发送@全体成员',
       check: async (message: MessageInterface) => {
         const isMentionAll = (await message.mentionSelf()) && message.text().includes('@所有人');
         return isMentionAll;
@@ -26,7 +26,7 @@ export class RuleManager {
     };
 
     const notAnnouncement: Rule = {
-      description: '群公告',
+      description: '发送群公告',
       check: async (message: MessageInterface) => {
         const isAnnouncement = message.text().startsWith('群公告');
         return isAnnouncement;
@@ -58,7 +58,7 @@ export class RuleManager {
 
     // 群聊且是自己发言且开头带有提问
     const isRoomAndSelfAndStartWithQuestion: Rule = {
-      description: '群聊且是自己发言且开头带有提问',
+      description: '群聊且是自己发言且开头带有"提问"',
       check: async (message: MessageInterface) => {
         const room = !!message.room();
         const isStartWithQuestion = message.text().startsWith('提问');
@@ -67,7 +67,7 @@ export class RuleManager {
     };
 
     const isPrivateAndStartWithQuestion: Rule = {
-      description: '私聊且以“提问”开头',
+      description: '私聊且以"提问"开头',
       check: async (message: MessageInterface) => {
         const room = !!message.room();
         const isStartWithQuestion = message.text().startsWith('提问');
@@ -97,5 +97,20 @@ export class RuleManager {
     }
     this.logger.debug('Refuse message: No rule matched');
     return false;
+  }
+
+  public showRules(): string {
+    // for refuse rules
+    let ruleDescription = '在下面这些情况中，ChatGPT不会回答你的问题\n';
+    for (const rr of this.refuseRules) {
+      ruleDescription += `${this.refuseRules.findIndex(rr)}${rr.description}\n`;
+    }
+    ruleDescription += '你需要依照下面这些提问方法来对ChatGPT进行提问\n';
+    for (const ar of this.acceptRules) {
+      ruleDescription += `${ar.description}\n`;
+    }
+    ruleDescription += '注意，开头的"提问"不会被纳入提问内容';
+
+    return ruleDescription;
   }
 }

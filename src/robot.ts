@@ -103,6 +103,10 @@ class ChatRobot {
         case MessageType.Text:
           const room = message.room();
           const text = message.text().replace(/@.*\s/, '').replace(/^提问/, '');
+          if (text === 'chatgpt rule') {
+            await message.say(this.ruleManager.showRules());
+            break;
+          }
 
           if (!(await this.ruleManager.valid(message))) break;
           let response = await this.chatgpt.sendMessage(text, message.talker());
@@ -115,6 +119,8 @@ class ChatRobot {
             break;
           }
           await message.say(response);
+          break;
+        case MessageType.Unknown:
           break;
         default:
           this.logger.debug(`Message Type: ${MessageTypeName[message.type()]} from ${message.talker().name()}`);
