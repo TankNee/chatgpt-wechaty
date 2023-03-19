@@ -103,11 +103,11 @@ export class RuleManager {
     // for refuse rules
     let ruleDescription = '在下面这些情况中，ChatGPT不会回答你的问题\n';
     for (const rr of this.refuseRules) {
-      ruleDescription += `${this.refuseRules.findIndex(rr)}${rr.description}\n`;
+      ruleDescription += `${this.refuseRules.findIndex(r => r === rr)}：${rr.description}\n`;
     }
     ruleDescription += '你需要依照下面这些提问方法来对ChatGPT进行提问\n';
     for (const ar of this.acceptRules) {
-      ruleDescription += `${ar.description}\n`;
+      ruleDescription += `${this.refuseRules.findIndex(r => r === ar)}：${ar.description}\n`;
     }
     ruleDescription += '注意，开头的"提问"不会被纳入提问内容';
 
