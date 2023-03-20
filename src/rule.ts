@@ -42,8 +42,7 @@ export class RuleManager {
         if (!room) {
           return false;
         } else {
-          const roomName = await room.topic();
-          const isWhiteList = ROOM_WHITE_LIST.includes(roomName);
+          const isWhiteList = ROOM_WHITE_LIST.includes(room.id);
           if (isWhiteList) saveRoomMessage(message);
 
           return !isWhiteList;

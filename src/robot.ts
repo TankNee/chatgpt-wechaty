@@ -105,7 +105,7 @@ class ChatRobot {
       switch (message.type()) {
         case MessageType.Text:
           const room = message.room();
-          const text = message.text().replace(/@.*\s/, '').replace(/^提问/, '');
+          const text = message.text().replace(/@[^\s]*\s/, '').replace(/^提问/, '');
           if (text === 'chatgpt rule') {
             await message.say(this.ruleManager.showRules());
             break;
@@ -113,7 +113,7 @@ class ChatRobot {
 
           if (!(await this.ruleManager.valid(message))) break;
           // 如果执行了命令，就不再执行下面的逻辑
-          if (this.commandManager.handle(message)) break;
+          if (await this.commandManager.handle(message)) break;
           let response = await this.chatgpt.sendMessage(text, message.talker());
 
           if (room) {

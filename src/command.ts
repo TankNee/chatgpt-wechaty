@@ -20,6 +20,8 @@ export class CommandManager {
     this.commands = new Map();
     this.logger = log4js.getLogger('CommandManager');
     this.chatgpt = new ChatGPT();
+
+    this.init();
   }
 
   public init(): void {
@@ -29,7 +31,7 @@ export class CommandManager {
       name: 'summary',
       description: '汇总群消息，默认汇总本群的最近50条消息',
       check: (message: MessageInterface): boolean => {
-        const text = message.text();
+        const text = message.text().replace(/@[^\s]*\s/, '').replace(/^提问/, '');
         if (!text) {
           return false;
         }
@@ -48,13 +50,13 @@ export class CommandManager {
       do: async (message: MessageInterface): Promise<void> => {
         const room = message.room();
         const topic = await room.topic();
-        const args = message.text().split(' ');
+        const args = message.text().replace(/@[^\s]*\s/, '').replace(/^提问/, '').split(' ');
         const num = args.length === 2 ? parseInt(args[1]) : 50;
         const messages = getRoomMessage(room.id, num);
-        const summary = messages.map(m => `[${m.time}]${m.talker}: ${m.text}`).join('\n');
-        const prompt = `以下是${topic}的最近${num}条消息，你要做的是总结全部内容，并分点给出摘要，最好带上时间戳，不能出现特殊格式，最好用纯文本的形式输出。\n\n${summary}`
+        const summary = messages.map(m => `[${m.time.toLocaleString()}]${m.talker}: ${m.text}`).join('\n');
+        const prompt = `以下是${topic}的最近${num}条消息，你要做的是用中文总结全部内容，统计分析发言者的发言内容和发言数量，不能出现特殊格式，用纯文本的形式输出，不可以纯粹复述聊天内容。\n\n${summary}`
         const summaryResult = await this.chatgpt.sendMessage(prompt, message.talker());
-        await message.say(summaryResult);
+        await room.say(summaryResult, message.talker());
       },
     };
 
@@ -70,11 +72,12 @@ export class CommandManager {
   }
 
   public async handle(message: MessageInterface): Promise<boolean> {
-    const text = message.text();
+    const text = message.text().replace(/@[^\s]*\s/, '').replace(/^提问/, '');
     if (!text) {
       return false;
     }
     const args = text.split(' ');
+    this.logger.debug(`Command: ${args}`);
     const command = this.commands.get(args[0]);
     if (!command) {
       return false;
