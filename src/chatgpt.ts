@@ -26,7 +26,7 @@ class ChatGPT {
     const lastMessageId = this.conversations.get(talker.id);
 
     this.logger.info(`Sending message to ChatGPT: ${message}`);
-    const response = await this.api.sendMessage(message, { timeoutMs: 60000, parentMessageId: lastMessageId });
+    const response = await this.api.sendMessage(message, { timeoutMs: 2 * 60 * 1000, parentMessageId: lastMessageId });
     let responseText = response.text;
     this.logger.info(`Received response from ChatGPT: ${responseText}`);
 

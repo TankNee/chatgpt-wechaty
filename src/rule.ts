@@ -1,6 +1,7 @@
 import { MessageInterface } from 'wechaty/impls';
 import { ROOM_WHITE_LIST } from './configs';
 import log4js from './logger';
+import { saveRoomMessage } from './utils';
 export interface Rule {
   description: string;
   check: (message: MessageInterface) => Promise<boolean>;
@@ -42,7 +43,10 @@ export class RuleManager {
           return false;
         } else {
           const roomName = await room.topic();
-          return !ROOM_WHITE_LIST.includes(roomName);
+          const isWhiteList = ROOM_WHITE_LIST.includes(roomName);
+          if (isWhiteList) saveRoomMessage(message);
+
+          return !isWhiteList;
         }
       },
     };

@@ -8,12 +8,14 @@ import qrcodeTerminal from 'qrcode-terminal';
 import { MessageType, MessageTypeName } from './interfaces';
 import ChatGPT from './chatgpt';
 import { RuleManager } from './rule';
+import { CommandManager } from './command';
 
 class ChatRobot {
   private bot: WechatyInterface;
   private logger: log4js.Logger;
   private ruleManager: RuleManager;
   private chatgpt: ChatGPT;
+  private commandManager: CommandManager;
 
   private init() {
     let options: WechatyOptions;
@@ -36,6 +38,7 @@ class ChatRobot {
     this.bot = this.init();
     this.logger = log4js.getLogger('ChatRobot');
     this.ruleManager = new RuleManager();
+    this.commandManager = new CommandManager();
     this.chatgpt = new ChatGPT();
     this.attachHandlers();
   }
@@ -109,6 +112,8 @@ class ChatRobot {
           }
 
           if (!(await this.ruleManager.valid(message))) break;
+          // 如果执行了命令，就不再执行下面的逻辑
+          if (this.commandManager.handle(message)) break;
           let response = await this.chatgpt.sendMessage(text, message.talker());
 
           if (room) {
@@ -128,7 +133,7 @@ class ChatRobot {
       }
     } catch (error) {
       this.logger.error(error);
-      if (error.message.includes('ChatGPT')) {
+      if (error.message.includes('timeout')) {
         await message.say(error.message);
         if (error.message.includes('429')) {
           this.chatgpt.removeConversation(message.talker());
