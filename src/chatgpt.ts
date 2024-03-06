@@ -1,41 +1,57 @@
 import 'isomorphic-unfetch';
-import { ChatGPTAPI } from 'chatgpt';
+import OpenAI from 'openai';
 import { Contact } from 'wechaty';
-import { OPENAI_API_KEY, OPENAI_BASE_URL } from './configs';
+import { OPENAI_API_KEY, OPENAI_BASE_URL, TEMPERATURE, TOP_P, SYSTEM_PROMPT, MAX_TOKENS } from './configs';
 import log4js from './logger';
 import fs from 'fs';
 class ChatGPT {
-  private api: ChatGPTAPI;
+  private api: OpenAI;
   private logger: log4js.Logger;
   // talker id and last message id, refer https://github.com/transitive-bullshit/chatgpt-api#readme
-  private conversations: Map<string, string>;
+  private conversations: Map<string, OpenAI.Chat.Completions.ChatCompletionMessageParam[]>;
 
   constructor() {
-    this.api = new ChatGPTAPI({
+    this.api = new OpenAI({
       apiKey: OPENAI_API_KEY as string,
-      apiBaseUrl: OPENAI_BASE_URL as string,
+      baseURL: OPENAI_BASE_URL,
     });
     this.logger = log4js.getLogger('ChatGPT');
     this.conversations = new Map();
   }
 
+  async getAIResponse(
+    message: string,
+    history: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+  ): Promise<[string, OpenAI.Chat.Completions.ChatCompletionMessageParam[]]> {
+    this.logger.info(`Sending message to ChatGPT: ${message}`);
+
+    history.push({ role: 'user', content: message });
+    const response = await this.api.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: history,
+      max_tokens: MAX_TOKENS,
+      temperature: TEMPERATURE,
+      top_p: TOP_P,
+    });
+    let responseText = response.choices[0].message.content;
+    return [responseText, history];
+  }
+
   async sendMessage(message: string, talker: Contact): Promise<string> {
     if (!this.conversations.has(talker.id)) {
-      this.conversations.set(talker.id, null);
+      const initial_history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{ role: 'system', content: SYSTEM_PROMPT }];
+      this.conversations.set(talker.id, initial_history);
     }
-    const lastMessageId = this.conversations.get(talker.id);
+    const oldHistory = this.conversations.get(talker.id);
 
     this.logger.info(`Sending message to ChatGPT: ${message}`);
-    const response = await this.api.sendMessage(message, { timeoutMs: 2 * 60 * 1000, parentMessageId: lastMessageId });
-    let responseText = response.text;
+    const [responseText, history] = await this.getAIResponse(message, oldHistory);
     this.logger.info(`Received response from ChatGPT: ${responseText}`);
 
-    this.conversations.set(talker.id, response.id);
+    this.conversations.set(talker.id, history);
     // save data
     this.saveMessageHistory(talker, message, 'user', null);
-    this.saveMessageHistory(talker, responseText, 'bot', response.detail);
-
-    responseText = responseText.replace(/^提问/, '');
+    this.saveMessageHistory(talker, responseText, 'bot', history);
 
     return responseText;
   }

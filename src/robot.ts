@@ -105,7 +105,10 @@ class ChatRobot {
       switch (message.type()) {
         case MessageType.Text:
           const room = message.room();
-          const text = message.text().replace(/@[^\s]*\s/, '').replace(/^提问/, '');
+          const text = message
+            .text()
+            .replace(/@[^\s]*\s/, '')
+            .replace(/^提问/, '');
           if (text === 'chatgpt rule') {
             await message.say(this.ruleManager.showRules());
             break;

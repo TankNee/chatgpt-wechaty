@@ -14,10 +14,10 @@
   "author": "TankNee",
   "license": "ISC",
   "dependencies": {
-    "chatgpt": "^5.0.10",
     "dotenv": "^16.0.3",
     "isomorphic-unfetch": "^4.0.2",
     "log4js": "^6.7.1",
+    "openai": "^4.28.4",
     "qrcode-terminal": "^0.12.0",
     "tsx": "^3.12.1",
     "wechaty": "^1.20.2",
