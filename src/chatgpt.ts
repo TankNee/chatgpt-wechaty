@@ -1,9 +1,10 @@
+import fs from 'fs';
 import 'isomorphic-unfetch';
 import OpenAI from 'openai';
 import { Contact } from 'wechaty';
-import { OPENAI_API_KEY, OPENAI_BASE_URL, TEMPERATURE, TOP_P, SYSTEM_PROMPT, MAX_TOKENS } from './configs';
+import { MAX_TOKENS, OPENAI_API_KEY, OPENAI_BASE_URL, SYSTEM_PROMPT, TEMPERATURE, TOP_P } from './configs';
 import log4js from './logger';
-import fs from 'fs';
+
 class ChatGPT {
   private api: OpenAI;
   private logger: log4js.Logger;

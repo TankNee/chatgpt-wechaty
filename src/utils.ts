@@ -1,5 +1,5 @@
-import { MessageInterface } from 'wechaty/impls';
 import fs from 'fs';
+import { MessageInterface } from 'wechaty/impls';
 
 export interface RoomMessage {
   text: string;

@@ -1,14 +1,14 @@
-import { PuppetPadlocal } from 'wechaty-puppet-padlocal';
-import { Contact, ScanStatus, WechatyBuilder, WechatyOptions } from 'wechaty';
-import { PAD_LOCAL_TOKEN, WECHATY_TYPE } from './configs';
-import { ContactSelfInterface, MessageInterface, WechatyInterface } from 'wechaty/impls';
-import log4js from './logger';
-import { isNullOrEmpty } from './utils';
 import qrcodeTerminal from 'qrcode-terminal';
-import { MessageType, MessageTypeName } from './interfaces';
+import { Contact, ScanStatus, WechatyBuilder, WechatyOptions } from 'wechaty';
+import { PuppetPadlocal } from 'wechaty-puppet-padlocal';
+import { ContactSelfInterface, MessageInterface, WechatyInterface } from 'wechaty/impls';
 import ChatGPT from './chatgpt';
-import { RuleManager } from './rule';
 import { CommandManager } from './command';
+import { PAD_LOCAL_TOKEN, WECHATY_TYPE } from './configs';
+import { MessageType, MessageTypeName } from './interfaces';
+import log4js from './logger';
+import { RuleManager } from './rule';
+import { isNullOrEmpty } from './utils';
 
 class ChatRobot {
   private bot: WechatyInterface;
