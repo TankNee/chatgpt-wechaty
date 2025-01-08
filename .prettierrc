@@ -4,5 +4,8 @@
     "singleQuote": true,
     "trailingComma": "all",
     "semi": true,
-    "arrowParens": "avoid"
+    "arrowParens": "avoid",
+    "plugins": [
+        "prettier-plugin-organize-imports"
+    ]
 }
