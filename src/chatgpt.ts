@@ -1,9 +1,10 @@
-import fs from 'fs';
 import 'isomorphic-unfetch';
 import OpenAI from 'openai';
 import { Contact } from 'wechaty';
-import { MAX_TOKENS, OPENAI_API_KEY, OPENAI_BASE_URL, SYSTEM_PROMPT, TEMPERATURE, TOP_P } from './configs';
+import { MessageInterface } from 'wechaty/impls';
+import { MAX_TOKENS, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL_NAME, SYSTEM_PROMPT, TEMPERATURE, TOP_P } from './configs';
 import log4js from './logger';
+import { saveMessageHistory } from './utils';
 
 class ChatGPT {
   private api: OpenAI;
@@ -24,11 +25,9 @@ class ChatGPT {
     message: string,
     history: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   ): Promise<[string, OpenAI.Chat.Completions.ChatCompletionMessageParam[]]> {
-    this.logger.info(`Sending message to ChatGPT: ${message}`);
-
-    history.push({ role: 'user', content: message });
+    history.push({ role: 'user', content: [{ type: 'text', text: message }] });
     const response = await this.api.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: OPENAI_MODEL_NAME,
       messages: history,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
@@ -38,47 +37,71 @@ class ChatGPT {
     return [responseText, history];
   }
 
-  async sendMessage(message: string, talker: Contact): Promise<string> {
-    if (!this.conversations.has(talker.id)) {
-      const initial_history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{ role: 'system', content: SYSTEM_PROMPT }];
-      this.conversations.set(talker.id, initial_history);
+  buildConversationId(message: MessageInterface): string {
+    let convsationId = `${message.talker().id}`;
+    if (message.room()) {
+      convsationId = `${message.room().id}-${message.talker().id}`;
     }
-    const oldHistory = this.conversations.get(talker.id);
+    return convsationId;
+  }
 
-    this.logger.info(`Sending message to ChatGPT: ${message}`);
-    const [responseText, history] = await this.getAIResponse(message, oldHistory);
+  initHistory(message: MessageInterface): void {
+    let convsationId = this.buildConversationId(message);
+    if (!this.conversations.has(convsationId)) {
+      const initial_history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: [{ type: 'text', text: SYSTEM_PROMPT }] },
+      ];
+      this.conversations.set(convsationId, initial_history);
+    }
+  }
+
+  async sendMessage(text: string, message: MessageInterface, talker: Contact): Promise<string> {
+    this.initHistory(message);
+    const convsationId = this.buildConversationId(message);
+    const oldHistory = this.conversations.get(convsationId);
+
+    this.logger.info(`Sending message to ChatGPT: ${text}`);
+    const [responseText, history] = await this.getAIResponse(text, oldHistory);
     this.logger.info(`Received response from ChatGPT: ${responseText}`);
 
-    this.conversations.set(talker.id, history);
+    this.conversations.set(convsationId, history);
     // save data
-    this.saveMessageHistory(talker, message, 'user', null);
-    this.saveMessageHistory(talker, responseText, 'bot', history);
+    saveMessageHistory(talker, message, text, 'user', { type: 'text' });
+    saveMessageHistory(talker, message, responseText, 'bot', { type: 'text' });
 
     return responseText;
   }
 
-  async removeConversation(talker: Contact): Promise<void> {
-    if (!this.conversations.has(talker.id)) return;
-    this.conversations.delete(talker.id);
+  async addImageMessage(talker: Contact, message: MessageInterface) {
+    this.initHistory(message);
+    const convsationId = this.buildConversationId(message);
+    const image = await message.toFileBox();
+    const imageBase64 = await image.toBase64();
 
-    this.logger.info(`Removed conversation with ${talker.name()}`);
-    // 打印全部会话
-    this.logger.info(this.conversations);
-  }
-
-  async saveMessageHistory(talker: Contact, text: string, role: string, detail: any): Promise<void> {
-    // save to local file
-    // const path = `./history/${talker.id}.txt`;
-    const path = `./history/wechat_${talker.name()}.json`;
-
-    // 存储为json格式
-    let data = [];
-    if (fs.existsSync(path)) {
-      const rawData = fs.readFileSync(path, 'utf-8');
-      data = JSON.parse(rawData);
+    saveMessageHistory(message.talker(), message, '', 'user', { type: 'image', data: imageBase64 });
+    const oldHistory = this.conversations.get(convsationId);
+    // remove previous images
+    const newHistory = [];
+    for (const item of oldHistory) {
+      // @ts-ignore
+      if (item.content[0].type !== 'image_url') {
+        newHistory.push(item);
+      }
     }
-    data.push({ text, time: new Date().toLocaleString(), role, detail });
-    fs.writeFileSync(path, JSON.stringify(data, null, 2));
+    newHistory.push({
+      role: 'user',
+      content: [
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:image/jpeg;base64,${imageBase64}`,
+            detail: 'high',
+          },
+        },
+      ],
+    });
+    this.conversations.set(convsationId, newHistory);
+    this.logger.info(`Added image message to conversation with ${talker.name()} and remove previous images`);
   }
 }
 

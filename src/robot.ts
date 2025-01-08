@@ -1,14 +1,16 @@
 import qrcodeTerminal from 'qrcode-terminal';
 import { Contact, ScanStatus, WechatyBuilder, WechatyOptions } from 'wechaty';
+import { PuppetMock } from 'wechaty-puppet-mock';
 import { PuppetPadlocal } from 'wechaty-puppet-padlocal';
+import { PuppetWechat4u } from 'wechaty-puppet-wechat4u';
 import { ContactSelfInterface, MessageInterface, WechatyInterface } from 'wechaty/impls';
 import ChatGPT from './chatgpt';
 import { CommandManager } from './command';
-import { PAD_LOCAL_TOKEN, WECHATY_TYPE } from './configs';
+import { CHROME_BIN, PAD_LOCAL_TOKEN, WECHATY_TYPE } from './configs';
 import { MessageType, MessageTypeName } from './interfaces';
 import log4js from './logger';
-import { RuleManager } from './rule';
-import { isNullOrEmpty } from './utils';
+import { notInRoomWhiteList, RuleManager } from './rule';
+import { isNullOrEmpty, saveMessageHistory } from './utils';
 
 class ChatRobot {
   private bot: WechatyInterface;
@@ -24,6 +26,19 @@ class ChatRobot {
         options = {
           puppet: new PuppetPadlocal({
             token: PAD_LOCAL_TOKEN,
+          }),
+        };
+        break;
+      case 'mock':
+        options = {
+          puppet: new PuppetMock(),
+        };
+        break;
+      case 'wechat4u':
+        options = {
+          puppet: new PuppetWechat4u({
+            uos: true,
+            ...CHROME_BIN,
           }),
         };
         break;
@@ -100,6 +115,9 @@ class ChatRobot {
     if (!message.self()) {
       this.logger.debug(`Message from ${message.talker().name()}`);
     }
+    if (await notInRoomWhiteList.check(message)) {
+      return;
+    }
 
     try {
       switch (message.type()) {
@@ -117,7 +135,7 @@ class ChatRobot {
           if (!(await this.ruleManager.valid(message))) break;
           // 如果执行了命令，就不再执行下面的逻辑
           if (await this.commandManager.handle(message)) break;
-          let response = await this.chatgpt.sendMessage(text, message.talker());
+          let response = await this.chatgpt.sendMessage(text, message, message.talker());
 
           if (room) {
             await room.say(response, message.talker());
@@ -128,6 +146,10 @@ class ChatRobot {
           }
           await message.say(response);
           break;
+        case MessageType.Image:
+          this.logger.debug(`Message Type: ${MessageTypeName[message.type()]} from ${message.talker().name()}`);
+          await this.chatgpt.addImageMessage(message.talker(), message);
+          break;
         case MessageType.Unknown:
           break;
         default:
@@ -136,13 +158,6 @@ class ChatRobot {
       }
     } catch (error) {
       this.logger.error(error);
-      if (error.message.includes('timeout')) {
-        await message.say(error.message);
-        if (error.message.includes('429')) {
-          this.chatgpt.removeConversation(message.talker());
-          message.say('重启中...可以继续发问题了');
-        }
-      }
       this.logger.error(`Message: ${message.talker().name()} - ${MessageTypeName[message.type()]} - ${message.text()}`);
     }
   }

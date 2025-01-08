@@ -62,7 +62,7 @@ export class CommandManager {
         const messages = getRoomMessage(room.id, num);
         const summary = messages.map(m => `[${m.time.toLocaleString()}]${m.talker}: ${m.text}`).join('\n');
         const prompt = `以下是${topic}的最近${num}条消息，你要做的是用中文总结全部内容，统计分析发言者的发言内容和发言数量，不能出现特殊格式，用纯文本的形式输出，不可以纯粹复述聊天内容。\n\n${summary}`;
-        const summaryResult = await this.chatgpt.sendMessage(prompt, message.talker());
+        const summaryResult = await this.chatgpt.sendMessage(prompt, message, message.talker());
         await room.say(summaryResult, message.talker());
       },
     };

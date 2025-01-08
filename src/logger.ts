@@ -18,6 +18,7 @@ log4js.configure({
     ChatGPT: { appenders: ['console', 'production'], level: 'debug' },
     ChatRobot: { appenders: ['console', 'production'], level: 'debug' },
     Main: { appenders: ['console', 'production'], level: 'debug' },
+    RuleManager: { appenders: ['console', 'production'], level: 'debug' },
   },
 });
 

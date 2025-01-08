@@ -7,6 +7,23 @@ export interface Rule {
   check: (message: MessageInterface) => Promise<boolean>;
 }
 
+// 不在群聊白名单
+export const notInRoomWhiteList: Rule = {
+  description: '不在群聊白名单',
+  check: async (message: MessageInterface) => {
+    const room = message.room();
+    if (!room) {
+      return false;
+    } else {
+      const isWhiteList = ROOM_WHITE_LIST.includes(room.id);
+      const isWhiteNameList = ROOM_WHITE_LIST.includes(await room.topic());
+      if (isWhiteList || isWhiteNameList) saveRoomMessage(message);
+
+      return !isWhiteList && !isWhiteNameList;
+    }
+  },
+};
+
 export class RuleManager {
   private refuseRules: Rule[] = [];
   private acceptRules: Rule[] = [];
@@ -18,7 +35,7 @@ export class RuleManager {
   }
 
   public initRules() {
-    const notMentionAll: Rule = {
+    const mentionAll: Rule = {
       description: '发送@全体成员',
       check: async (message: MessageInterface) => {
         const isMentionAll = (await message.mentionSelf()) && message.text().includes('@所有人');
@@ -26,7 +43,7 @@ export class RuleManager {
       },
     };
 
-    const notAnnouncement: Rule = {
+    const pubAnnouncement: Rule = {
       description: '发送群公告',
       check: async (message: MessageInterface) => {
         const isAnnouncement = message.text().startsWith('群公告');
@@ -34,22 +51,7 @@ export class RuleManager {
       },
     };
 
-    // 不在群聊白名单
-    const notInRoomWhiteList: Rule = {
-      description: '不在群聊白名单',
-      check: async (message: MessageInterface) => {
-        const room = message.room();
-        if (!room) {
-          return false;
-        } else {
-          const isWhiteList = ROOM_WHITE_LIST.includes(room.id);
-          if (isWhiteList) saveRoomMessage(message);
-
-          return !isWhiteList;
-        }
-      },
-    };
-
+    // 接受类规则
     const isRoomAndMentionSelf: Rule = {
       description: '群聊且@自己',
       check: async (message: MessageInterface) => {
@@ -78,7 +80,7 @@ export class RuleManager {
       },
     };
 
-    this.refuseRules = [notMentionAll, notAnnouncement, notInRoomWhiteList];
+    this.refuseRules = [mentionAll, pubAnnouncement];
     this.acceptRules = [isRoomAndMentionSelf, isRoomAndSelfAndStartWithQuestion, isPrivateAndStartWithQuestion];
 
     this.logger.info('RuleManager initialized');
@@ -110,7 +112,7 @@ export class RuleManager {
     }
     ruleDescription += '你需要依照下面这些提问方法来对ChatGPT进行提问\n';
     for (const ar of this.acceptRules) {
-      ruleDescription += `${this.refuseRules.findIndex(r => r === ar)}：${ar.description}\n`;
+      ruleDescription += `${this.acceptRules.findIndex(r => r === ar)}：${ar.description}\n`;
     }
     ruleDescription += '注意，开头的"提问"不会被纳入提问内容';
 

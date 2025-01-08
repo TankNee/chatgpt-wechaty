@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { Contact } from 'wechaty';
 import { MessageInterface } from 'wechaty/impls';
 
 export interface RoomMessage {
@@ -30,6 +31,25 @@ export async function saveRoomMessage(message: MessageInterface) {
   const data = JSON.parse(fs.readFileSync(path, 'utf-8')) as RoomMessage[];
   data.push({ text: messageText, time: messageTime, talker: takerName });
 
+  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+}
+
+export function saveMessageHistory(talker: Contact, message: MessageInterface, text: string, role: string, detail: any): void {
+  // save to local file
+  let path = '';
+  if (!message.room()) {
+    path = `./history/wechat_${talker.name()}.json`;
+  } else {
+    path = `./history/wechat_${talker.name()}_${message.room()?.id}.json`;
+  }
+
+  // 存储为json格式
+  let data = [];
+  if (fs.existsSync(path)) {
+    const rawData = fs.readFileSync(path, 'utf-8');
+    data = JSON.parse(rawData);
+  }
+  data.push({ text, time: new Date().toLocaleString(), role, detail });
   fs.writeFileSync(path, JSON.stringify(data, null, 2));
 }
 
