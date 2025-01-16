@@ -87,7 +87,6 @@ export class CommandManager {
       return false;
     }
     const args = text.split(' ');
-    this.logger.debug(`Command: ${args}`);
     const command = this.commands.get(args[0]);
     if (!command) {
       return false;
@@ -95,6 +94,7 @@ export class CommandManager {
     if (!command.check(message)) {
       return false;
     }
+    this.logger.debug(`Command: ${args}`);
     await command.do(message);
     return true;
   }

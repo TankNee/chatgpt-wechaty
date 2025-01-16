@@ -2,9 +2,8 @@ import 'isomorphic-unfetch';
 import OpenAI from 'openai';
 import { Contact } from 'wechaty';
 import { MessageInterface } from 'wechaty/impls';
-import { MAX_TOKENS, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL_NAME, SYSTEM_PROMPT, TEMPERATURE, TOP_P } from './configs';
+import { HISTORY_LIMIT, MAX_TOKENS, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL_NAME, SYSTEM_PROMPT, TEMPERATURE, TOP_P } from './configs';
 import log4js from './logger';
-import { saveMessageHistory } from './utils';
 
 class ChatGPT {
   private api: OpenAI;
@@ -22,27 +21,36 @@ class ChatGPT {
   }
 
   async getAIResponse(
-    message: string,
-    history: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   ): Promise<[string, OpenAI.Chat.Completions.ChatCompletionMessageParam[]]> {
-    history.push({ role: 'user', content: [{ type: 'text', text: message }] });
+    // slice HISTORY_LIMIT messages
     const response = await this.api.chat.completions.create({
       model: OPENAI_MODEL_NAME,
-      messages: history,
+      messages,
       max_tokens: MAX_TOKENS,
       temperature: TEMPERATURE,
       top_p: TOP_P,
     });
     let responseText = response.choices[0].message.content;
-    return [responseText, history];
+    messages.push({ role: 'assistant', content: [{ type: 'text', text: responseText }] });
+    return [responseText, messages];
   }
 
   buildConversationId(message: MessageInterface): string {
     let convsationId = `${message.talker().id}`;
     if (message.room()) {
-      convsationId = `${message.room().id}-${message.talker().id}`;
+      // convsationId = `${message.room().id}-${message.talker().id}`;
+      convsationId = `${message.room().id}`;
     }
     return convsationId;
+  }
+
+  buildUserText(message: MessageInterface, text: string = ''): string {
+    let messageText = text;
+    // if (message.room()) {
+    //   messageText = `群友【${message.talker().name()}】：${text}`;
+    // }
+    return messageText;
   }
 
   initHistory(message: MessageInterface): void {
@@ -61,33 +69,39 @@ class ChatGPT {
     const oldHistory = this.conversations.get(convsationId);
 
     this.logger.info(`Sending message to ChatGPT: ${text}`);
-    const [responseText, history] = await this.getAIResponse(text, oldHistory);
+    const messages = oldHistory.slice(-HISTORY_LIMIT);
+    messages.push({ role: 'user', content: [{ type: 'text', text: this.buildUserText(message, text) }] });
+    const [responseText, history] = await this.getAIResponse(messages);
     this.logger.info(`Received response from ChatGPT: ${responseText}`);
 
     this.conversations.set(convsationId, history);
     // save data
-    saveMessageHistory(talker, message, text, 'user', { type: 'text' });
-    saveMessageHistory(talker, message, responseText, 'bot', { type: 'text' });
+    // saveMessageHistory(talker, message, text, 'user', { type: 'text' });
+    // saveMessageHistory(talker, message, responseText, 'bot', { type: 'text' });
 
     return responseText;
   }
 
-  async addImageMessage(talker: Contact, message: MessageInterface) {
+  async addTextMessage(message: MessageInterface) {
+    this.initHistory(message);
+    const convsationId = this.buildConversationId(message);
+    const text = message.text();
+    // saveMessageHistory(message.talker(), message, text, 'user', { type: 'text' });
+    const oldHistory = this.conversations.get(convsationId);
+    oldHistory.push({ role: 'user', content: [{ type: 'text', text: this.buildUserText(message, text) }] });
+    this.conversations.set(convsationId, oldHistory);
+  }
+
+  async addImageMessage(message: MessageInterface) {
     this.initHistory(message);
     const convsationId = this.buildConversationId(message);
     const image = await message.toFileBox();
     const imageBase64 = await image.toBase64();
 
-    saveMessageHistory(message.talker(), message, '', 'user', { type: 'image', data: imageBase64 });
+    // saveMessageHistory(message.talker(), message, '', 'user', { type: 'image', data: imageBase64 });
     const oldHistory = this.conversations.get(convsationId);
-    // remove previous images
-    const newHistory = [];
-    for (const item of oldHistory) {
-      // @ts-ignore
-      if (item.content[0].type !== 'image_url') {
-        newHistory.push(item);
-      }
-    }
+    // @ts-ignore
+    const newHistory = oldHistory.filter(msg => msg.content[0].type !== 'image_url');
     newHistory.push({
       role: 'user',
       content: [
@@ -98,10 +112,19 @@ class ChatGPT {
             detail: 'high',
           },
         },
+        {
+          type: 'text',
+          text: `【${message.talker().name()}】发送了一张图片。`,
+        },
       ],
     });
     this.conversations.set(convsationId, newHistory);
-    this.logger.info(`Added image message to conversation with ${talker.name()} and remove previous images`);
+    this.logger.info(`Added image message to conversation with ${message.talker().name()} and remove previous image messages.`);
+  }
+
+  clearHistory(message: MessageInterface) {
+    const convsationId = this.buildConversationId(message);
+    this.conversations.set(convsationId, []);
   }
 }
 

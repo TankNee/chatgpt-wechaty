@@ -3,6 +3,7 @@ import { Contact, ScanStatus, WechatyBuilder, WechatyOptions } from 'wechaty';
 import { PuppetMock } from 'wechaty-puppet-mock';
 import { PuppetPadlocal } from 'wechaty-puppet-padlocal';
 import { PuppetWechat4u } from 'wechaty-puppet-wechat4u';
+import { PuppetWeChat } from 'wechaty-puppet-wechat'
 import { ContactSelfInterface, MessageInterface, WechatyInterface } from 'wechaty/impls';
 import ChatGPT from './chatgpt';
 import { CommandManager } from './command';
@@ -34,9 +35,17 @@ class ChatRobot {
           puppet: new PuppetMock(),
         };
         break;
-      case 'wechat4u':
+        case 'wechat4u':
+          options = {
+            puppet: new PuppetWechat4u({
+              uos: true,
+              ...CHROME_BIN,
+            }),
+          };
+          break;
+      case 'wechat':
         options = {
-          puppet: new PuppetWechat4u({
+          puppet: new PuppetWeChat({
             uos: true,
             ...CHROME_BIN,
           }),
@@ -130,8 +139,12 @@ class ChatRobot {
           if (text === 'chatgpt rule') {
             await message.say(this.ruleManager.showRules());
             break;
+          } else if (text === 'clear') {
+            this.chatgpt.clearHistory(message);
+            this.logger.info('Clearing history...');
           }
-
+          
+          this.chatgpt.addTextMessage(message);
           if (!(await this.ruleManager.valid(message))) break;
           // 如果执行了命令，就不再执行下面的逻辑
           if (await this.commandManager.handle(message)) break;
@@ -148,7 +161,7 @@ class ChatRobot {
           break;
         case MessageType.Image:
           this.logger.debug(`Message Type: ${MessageTypeName[message.type()]} from ${message.talker().name()}`);
-          await this.chatgpt.addImageMessage(message.talker(), message);
+          await this.chatgpt.addImageMessage(message);
           break;
         case MessageType.Unknown:
           break;

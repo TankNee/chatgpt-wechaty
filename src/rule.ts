@@ -63,11 +63,11 @@ export class RuleManager {
 
     // 群聊且是自己发言且开头带有提问
     const isRoomAndSelfAndStartWithQuestion: Rule = {
-      description: '群聊且是自己发言且开头带有"提问"',
+      description: '群聊且不是机器人发言且开头带有"提问"',
       check: async (message: MessageInterface) => {
         const room = !!message.room();
         const isStartWithQuestion = message.text().startsWith('提问');
-        return room && message.self() && isStartWithQuestion;
+        return room && !message.self() && isStartWithQuestion;
       },
     };
 
